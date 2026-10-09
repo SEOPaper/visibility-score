@@ -285,9 +285,9 @@ footer { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; color: var(
 <script src="scoring.js"></script>
 <script>
 /* ======================= CONFIG ======================= */
-// Paste your OpenAI API key here. Anyone who can open this page can read it,
-// so only publish the page with a key that has a spending limit.
-const OPENAI_API_KEY = "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";
+// Address of the Cloudflare Worker that forwards requests to OpenAI (see ../worker).
+// The OpenAI API key is stored in the Worker, never in this page.
+const PROXY_URL = "https://visibility-score-proxy.reisenbichlermartin.workers.dev";
 
 const CONFIG = {
   // Writes the answer, with web search. Fast and cheap; answers read like ChatGPT.
@@ -394,29 +394,36 @@ const EXTRACT_SCHEMA = {
   },
 };
 
-function hasKey() { return OPENAI_API_KEY && !/^YOUR_/.test(OPENAI_API_KEY); }
+const NO_PROXY = "This feature is not connected yet (PROXY_URL in app.html). You can still try the example.";
+function hasProxy() { return PROXY_URL && !/^YOUR_/.test(PROXY_URL); }
 
-async function openai(body, signal) {
-  if (!hasKey()) throw new Error("Add your OpenAI API key in app.html (OPENAI_API_KEY) to use this feature. You can still try the example.");
+async function callProxy(body, signal) {
+  if (!hasProxy()) throw new Error(NO_PROXY);
   let r;
   try {
-    r = await fetch("https://api.openai.com/v1/responses", {
+    r = await fetch(PROXY_URL, {
       method: "POST", signal,
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + OPENAI_API_KEY },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
   } catch (e) {
     if (e.name === "AbortError") throw e;
-    throw new Error("Could not reach OpenAI. Check your internet connection.");
+    throw new Error("Could not reach the server. Check your internet connection.");
   }
-  const data = await r.json().catch(() => ({}));
   if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
     const msg = (data.error && data.error.message) || "";
-    if (r.status === 401) throw new Error("OpenAI rejected the API key. Check OPENAI_API_KEY in app.html.");
+    if (r.status === 401) throw new Error("OpenAI rejected the server's API key. Check the OPENAI_API_KEY secret in the Cloudflare Worker.");
+    if (r.status === 403) throw new Error("The server does not accept requests from this page. " + msg);
     if (r.status === 429) throw new Error("OpenAI rate limit or quota reached. Try again in a minute. " + msg);
     throw new Error("OpenAI error (" + r.status + "). " + msg);
   }
-  return data;
+  return r;
+}
+
+async function openai(body, signal) {
+  const r = await callProxy(body, signal);
+  return r.json().catch(() => ({}));
 }
 
 function outputText(data) {
@@ -438,7 +445,6 @@ function outputText(data) {
 
 /* Streams the answer: onText receives the text so far, so it appears while it is written. */
 async function generateAnswer(prompt, signal, onText) {
-  if (!hasKey()) throw new Error("Add your OpenAI API key in app.html (OPENAI_API_KEY) to use this feature. You can still try the example.");
   const body = {
     model: CONFIG.GENERATE_MODEL,
     reasoning: { effort: CONFIG.GENERATE_REASONING },
@@ -446,24 +452,7 @@ async function generateAnswer(prompt, signal, onText) {
     input: prompt,
     stream: true,
   };
-  let r;
-  try {
-    r = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST", signal,
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + OPENAI_API_KEY },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    if (e.name === "AbortError") throw e;
-    throw new Error("Could not reach OpenAI. Check your internet connection.");
-  }
-  if (!r.ok) {
-    const data = await r.json().catch(() => ({}));
-    const msg = (data.error && data.error.message) || "";
-    if (r.status === 401) throw new Error("OpenAI rejected the API key. Check OPENAI_API_KEY in app.html.");
-    if (r.status === 429) throw new Error("OpenAI rate limit or quota reached. Try again in a minute. " + msg);
-    throw new Error("OpenAI error (" + r.status + "). " + msg);
-  }
+  const r = await callProxy(body, signal);
 
   const reader = r.body.getReader(), decoder = new TextDecoder();
   let buffer = "", text = "", sources = [];
