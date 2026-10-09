@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>How it works · Visibility Score</title>
+<meta name="description" content="How the Visibility Score estimates brand visibility in AI-generated answers, and the research paper behind it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f7fa;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --ink: #16202b;
+  --ink-2: #3c4855;
+  --muted: #687584;
+  --line: #d5dde5;
+  --line-soft: #e7edf2;
+  --accent: #0047c8;
+  --accent-hover: #003aa6;
+  --accent-soft: #e8effc;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --shadow: 0 1px 3px rgba(16, 42, 67, .05), 0 10px 30px rgba(16, 42, 67, .06);
+  --radius: 20px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: linear-gradient(180deg, #ebf0fb 0, #f2f5fb 260px, var(--bg) 620px) no-repeat, var(--bg); animation: pagein .6s var(--ease) both; color: var(--ink); font: 17px/1.47 var(--font); letter-spacing: -.011em; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; border-radius: 10px; }
+
+
+main { max-width: 1040px; margin: 0 auto; padding: 0 16px 80px; }
+
+/* hero */
+.hero { text-align: center; padding: 64px 0 40px; }
+h1 { font-size: clamp(36px, 6.4vw, 56px); line-height: 1.06; letter-spacing: -.028em; font-weight: 700; margin: 0 auto; max-width: 16ch; text-wrap: balance; }
+.lede { color: var(--muted); font-size: clamp(18px, 2.4vw, 21px); line-height: 1.4; max-width: 36em; margin: 18px auto 0; text-wrap: pretty; }
+
+/* cards */
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px; }
+@media (max-width: 600px) { .card { padding: 20px; } }
+.card + .card { margin-top: 24px; }
+h2 { font-size: 28px; line-height: 1.14; letter-spacing: -.02em; font-weight: 700; margin: 0; }
+.sub { color: var(--muted); margin: 6px 0 0; font-size: 15px; }
+
+/* method */
+.method { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+@media (max-width: 760px) { .method { grid-template-columns: minmax(0, 1fr); } }
+.method div { background: var(--surface-2); border-radius: 14px; padding: 18px; border-top: 3px solid var(--accent); }
+.method h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: -.015em; }
+.method p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+/* paper */
+.card.paper { padding: 40px 56px; }
+@media (max-width: 760px) { .card.paper { padding: 28px 28px; } }
+@media (max-width: 600px) { .card.paper { padding: 22px; } }
+.eyebrow { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px; }
+.paper-title { font-size: clamp(22px, 3.2vw, 28px); }
+.paper-meta { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+.abstract { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line-soft); }
+.abstract h3 { margin: 0 0 8px; font-size: 17px; letter-spacing: -.015em; }
+.abstract p { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 1.62; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+.keywords { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 0; padding: 0; list-style: none; }
+.keywords li { background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 4px 11px; font-size: 13px; font-weight: 500; }
+
+.cta { text-align: center; margin-top: 28px; }
+.btn { display: inline-flex; align-items: center; gap: 10px; background: var(--accent); color: #fff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 13px 28px; border-radius: 980px; transition: background .25s, transform .25s var(--ease); }
+.btn:hover { background: var(--accent-hover); }
+.btn:active { transform: scale(.97); }
+.btn svg { width: 18px; height: 18px; transition: transform .35s var(--ease); }
+.btn:hover svg { transform: translateX(4px); }
+/* the button wiggles and sends out a soft ring, to invite a click */
+.cta .btn { position: relative; animation: nudge 2.8s ease-in-out .4s infinite; }
+.cta .btn::after { content: ""; position: absolute; inset: 0; border-radius: inherit; animation: halo 2.8s ease-out .4s infinite; pointer-events: none; }
+.cta .btn:hover, .cta .btn:focus-visible, .cta .btn:hover::after, .cta .btn:focus-visible::after { animation: none; }
+@keyframes nudge {
+  0%, 30%, 100% { transform: none; }
+  6% { transform: rotate(-3deg) scale(1.05); }
+  12% { transform: rotate(3deg) scale(1.05); }
+  18% { transform: rotate(-2deg) scale(1.03); }
+  24% { transform: rotate(1deg); }
+}
+@keyframes halo {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  35%, 100% { box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+footer { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); }
+
+/* motion */
+@keyframes pagein { from { opacity: 0; } to { opacity: 1; } }
+.rise { opacity: 0; transform: translateY(28px); animation: riseup .9s var(--ease) forwards; }
+.rise.d1 { animation-delay: .08s; } .rise.d2 { animation-delay: .2s; }
+@keyframes riseup { to { opacity: 1; transform: none; } }
+.rise .method div { opacity: 0; transform: translateY(20px); animation: riseup .8s var(--ease) forwards; animation-delay: .3s; }
+.rise .method div:nth-child(2) { animation-delay: .42s; } .rise .method div:nth-child(3) { animation-delay: .54s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .rise, .rise .method div { opacity: 1 !important; transform: none !important; }
+}
+/* main menu (same on every page) */
+.nav { position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, .78); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.nav-in { max-width: 1240px; margin: 0 auto; padding: 0 16px; height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nav a.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; flex: none; }
+.nav a.brand svg { width: 20px; height: 20px; color: var(--accent); }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-links a { color: var(--muted); font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; padding: 6px 12px; border-radius: 980px; transition: color .2s, background .2s; }
+.nav-links a:hover { color: var(--ink); background: rgba(16, 42, 67, .05); }
+.nav-links a[aria-current="page"] { color: #fff; background: var(--accent); font-weight: 600; }
+@media (max-width: 560px) { .brand-text { display: none; } .nav-links a { font-size: 13px; padding: 6px 10px; } }
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Main">
+  <div class="nav-in">
+    <a class="brand" href="index.html" aria-label="Visibility Score, back to start">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V13M10 20V8M16 20v-5M22 20H2"/><circle cx="19" cy="5" r="2.2"/></svg>
+      <span class="brand-text">Visibility Score</span>
+    </a>
+    <div class="nav-links">
+      <a href="how-it-works.html" aria-current="page">How it works</a>
+      <a href="app.html">Open the tool</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <header class="hero rise">
+    <h1>How it works</h1>
+    <p class="lede">The Visibility Score predicts how visible each brand in an AI-generated answer is to readers, using a model trained in the research paper below.</p>
+    <div class="cta">
+      <a class="btn" href="app.html">Try it on an answer
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+    </div>
+  </header>
+
+  <section class="card rise d1" aria-labelledby="methodTitle">
+    <h2 id="methodTitle">From answer to score</h2>
+    <p class="sub">Three steps turn a ChatGPT answer into a visibility score per brand.</p>
+    <div class="method">
+      <div><h3>1. Read the answer</h3><p>ChatGPT identifies every brand in the response, which passages describe it, whether there is a recommendation section, how strongly it endorses brands, and the response format.</p></div>
+      <div><h3>2. Measure the structure</h3><p>From that, the page computes each brand's rank of first mention, its share of the text, its share and rank within the recommendation, and the number of competing brands.</p></div>
+      <div><h3>3. Predict visibility</h3><p>A gradient-boosted tree model (XGBoost), trained on visibility ratings from three online experiments, turns these features into a score from 1 (not at all visible) to 7 (extremely visible).</p></div>
+    </div>
+  </section>
+
+  <section class="card paper rise d2" aria-labelledby="paperTitle">
+    <p class="eyebrow">The research paper</p>
+    <h2 class="paper-title" id="paperTitle">Beyond Ranks: Measuring Brand Visibility in LLM Responses</h2>
+    <p class="paper-meta">Manuscript under review at <i>Marketing Science</i></p>
+    <div class="abstract">
+      <h3>Abstract</h3>
+      <p>Large language models (LLMs) are increasingly shaping how consumers discover brands, yet existing visibility measures primarily capture whether and how frequently brands appear across collections of responses. They provide limited insight into how prominently consumers perceive a brand within an individual response. We introduce within-response brand visibility as a distinct consumer-facing construct and examine how it emerges from the architecture of LLM-generated responses. Study 1 analyzes 100,800 responses from four major LLM families across 200 products and services. The results reveal substantial heterogeneity in brand rank, textual allocation, response format, competitive scope, and recommendation structure, with recommendation-oriented guidance appearing in 79.8% of responses. Two main randomized online experiments (N&nbsp;=&nbsp;2,415) subsequently examine how these structural characteristics shape perceived visibility and downstream brand exploration. Rank and textual prominence matter, but adding recommendation-related features produces the largest incremental improvement in out-of-sample prediction. Brands receiving recommendation-related emphasis remain more visible even when they occupy less favorable positions. An extensive multi-study robustness battery (N&nbsp;=&nbsp;2,049), including additional online experiments and laboratory replications, demonstrates that this advantage generalizes across response formats, recommendation framings, competitive-set sizes, consumption domains, participant populations, and data-collection settings. In Study 2B, providers perceived as more visible are substantially more likely to be explored and to be clicked earlier. These findings distinguish cross-response brand presence from within-response brand visibility and identify recommendation as a multidimensional evaluative architecture through which LLMs allocate consumer attention among competing brands.</p>
+      <ul class="keywords" aria-label="Keywords">
+        <li>Large Language Models</li><li>Generative Search</li><li>Brand Visibility</li><li>Consumer Search</li><li>Recommendations</li><li>Generative Engine Optimization</li><li>Choice Architecture</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>Research prototype. Scores are model-based estimates of how prominent a brand appears to readers of one specific answer, not a measurement. They are most reliable for recommendation-style answers with 3–8 brands.</footer>
+
+</body>
+</html>

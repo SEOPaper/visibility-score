@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>Visibility Score</title>
+<meta name="description" content="Estimate how visible each brand is to readers of an AI-generated answer.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f7fa;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --ink: #16202b;
+  --ink-2: #3c4855;
+  --muted: #687584;
+  --line: #d5dde5;
+  --line-soft: #e7edf2;
+  --accent: #0047c8;       /* brand blue */
+  --accent-hover: #003aa6;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --accent-ink: #ffffff;
+  --accent-soft: #e8effc;
+  --bar: #0047c8;
+  --track: #eef2f6;
+  --rec-bg: #fff4e0;
+  --rec-ink: #8a5300;
+  --danger: #d70015;
+  --shadow: 0 1px 3px rgba(16, 42, 67, .05), 0 10px 30px rgba(16, 42, 67, .06);
+  --radius: 20px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: linear-gradient(180deg, #ebf0fb 0, #f2f5fb 260px, var(--bg) 620px) no-repeat, var(--bg); animation: pagein .6s var(--ease) both; color: var(--ink); font: 17px/1.47 var(--font); letter-spacing: -.011em; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; border-radius: 10px; }
+
+
+main { max-width: 1240px; margin: 0 auto; padding: 0 16px 80px; }
+.app-main { padding-top: 32px; }
+
+/* hero */
+.hero { text-align: center; padding: 64px 0 40px; }
+.hero-logo { display: block; width: 76px; height: 76px; margin: 0 auto 22px; color: var(--accent); }
+h1 { font-size: clamp(36px, 6.4vw, 60px); line-height: 1.06; letter-spacing: -.028em; font-weight: 700; margin: 0 auto; max-width: 16ch; text-wrap: balance; }
+.lede { color: var(--muted); font-size: clamp(18px, 2.4vw, 21px); line-height: 1.4; max-width: 40em; margin: 18px auto 0; text-wrap: pretty; }
+
+/* cards */
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px; }
+@media (max-width: 600px) { .card { padding: 20px; } }
+.card + .card, section + section { margin-top: 24px; }
+.layout + .card { margin-top: 24px; }
+.layout > .card { margin-top: 0; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; align-items: stretch; }
+.layout.has-results { align-items: start; }
+#results { display: flex; flex-direction: column; }
+#resultBody { flex: 1; display: flex; flex-direction: column; }
+#resultBody > .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.layout .col-input { position: sticky; top: 76px; }
+.layout .col-input textarea { min-height: 360px; }
+@media (max-width: 959px) { .layout { grid-template-columns: minmax(0, 1fr); } .layout .col-input { position: static; } .layout .col-input textarea { min-height: 240px; } }
+h2 { font-size: 28px; line-height: 1.14; letter-spacing: -.02em; font-weight: 700; margin: 0; }
+.sub { color: var(--muted); margin: 6px 0 0; font-size: 15px; }
+
+/* segmented control */
+.seg-ctl { display: inline-flex; background: var(--track); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg-ctl button { padding: 7px 18px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--ink-2); transition: background .2s, color .2s; }
+.seg-ctl button[aria-selected="true"] { background: var(--surface); color: var(--accent); }
+.input-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+
+.gen { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.gen input { flex: 1 1 320px; min-width: 0; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 12px 14px; font-size: 16px; }
+.gen input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.hint { color: var(--muted); font-size: 13px; margin: -6px 0 14px; display: flex; align-items: center; gap: 6px; }
+.hint { flex-wrap: wrap; gap: 6px 12px; }
+.switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-2); font-weight: 500; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch .track { position: relative; width: 34px; height: 20px; border-radius: 99px; background: #cfd6df; transition: background .25s var(--ease); flex: none; }
+.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .3s var(--ease); }
+.switch input:checked + .track { background: var(--accent); }
+.switch input:checked + .track::after { transform: translateX(14px); }
+.switch input:focus-visible + .track { outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent); outline-offset: 2px; }
+
+textarea { width: 100%; min-height: 240px; resize: vertical; display: block; border: 1px solid var(--line); background: var(--surface-2); border-radius: 14px; padding: 14px 16px; font-size: 15px; line-height: 1.6; }
+textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+
+.sources { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.sources a { color: var(--ink-2); background: var(--track); border-radius: 99px; padding: 4px 10px; text-decoration: none; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sources a:hover { color: var(--accent); }
+
+.actions { display: flex; align-items: center; gap: 10px 16px; margin-top: 16px; flex-wrap: wrap; }
+.meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.spacer { flex: 1; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 980px; padding: 11px 22px; font-size: 15px; font-weight: 500; white-space: nowrap; transition: background .25s, color .25s, opacity .25s, transform .25s var(--ease); }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+.btn-quiet { color: var(--accent); padding: 11px 12px; }
+.btn-quiet:hover { text-decoration: underline; }
+.btn-secondary { background: var(--accent-soft); color: var(--accent); }
+.btn-secondary:hover { background: #dce6fa; }
+.spin { width: 15px; height: 15px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status { margin-top: 14px; font-size: 14px; color: var(--muted); min-height: 1.4em; }
+.status.error { color: var(--danger); }
+
+/* results */
+.results-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: nowrap; margin-bottom: 22px; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line-soft); border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
+.stat { background: var(--surface-2); padding: 14px 16px; min-width: 0; }
+.stat dt { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+.stat dd { margin: 4px 0 0; font-size: 19px; font-weight: 600; letter-spacing: -.015em; overflow-wrap: anywhere; }
+
+/* leader */
+.leader { display: flex; align-items: center; gap: 10px 20px; flex-wrap: wrap; margin: 24px 0 26px; }
+.leader .score { display: inline-flex; align-items: baseline; gap: 10px; flex: none; }
+.leader .big { color: var(--accent); font-size: clamp(44px, 8vw, 64px); font-weight: 700; letter-spacing: -.035em; line-height: 1; font-variant-numeric: tabular-nums; }
+.leader .of { color: var(--muted); font-size: 17px; }
+.leader .who { flex: 1 1 220px; min-width: 0; color: var(--muted); font-size: 15px; line-height: 1.4; }
+.leader .who b { color: var(--ink); font-weight: 600; }
+
+/* chart */
+.chart { position: relative; background: var(--surface); border: 1px solid var(--line-soft); border-radius: 22px; padding: 12px 22px 16px; }
+.crow { display: grid; grid-template-columns: minmax(110px, 230px) minmax(0, 1fr) 48px; align-items: center; gap: 14px; padding: 9px 10px; margin: 0 -10px; border-radius: 12px; position: relative; }
+@media (max-width: 600px) { .chart { padding: 10px 16px 14px; } .crow { grid-template-columns: minmax(80px, 120px) minmax(0, 1fr) 42px; gap: 10px; } }
+.crow:hover, .crow:focus-visible { background: var(--surface-2); }
+.crow .name { min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 15px; }
+.crow .nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.crow.rec .nm { font-weight: 700; }
+.crow .star { color: var(--accent); font-size: 13px; flex: none; }
+.plot { position: relative; height: 10px; background: var(--track); border-radius: 99px; overflow: hidden; }
+.barfill { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--accent) 45%, #c9d6ee); border-radius: 99px; transition: width 1.1s var(--ease); }
+.crow:first-child .barfill { background: var(--accent); }
+.crow { opacity: 0; transform: translateY(8px); animation: rowin .6s var(--ease) forwards; }
+@keyframes rowin { to { opacity: 1; transform: none; } }
+.crow .val { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; font-size: 15px; }
+.chart-foot { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.results-head > div { min-width: 0; }
+.results-head .live { flex: none; margin-top: 10px; }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); }
+.live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+
+.tip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); border: 1px solid var(--line-soft); box-shadow: var(--shadow); border-radius: 12px; padding: 12px 14px; font-size: 13px; min-width: 210px; max-width: 280px; }
+.tip b { display: block; font-size: 14px; margin-bottom: 6px; }
+.tip dl { display: grid; grid-template-columns: auto auto; gap: 3px 16px; margin: 0; }
+.tip dt { color: var(--muted); }
+.tip dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* table */
+details.more { margin-top: 26px; border-top: 1px solid var(--line-soft); padding-top: 16px; }
+details.more summary { cursor: pointer; color: var(--accent); font-size: 15px; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+details.more summary::-webkit-details-marker { display: none; }
+details.more summary::after { content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
+details.more[open] summary::after { transform: rotate(-135deg) translateY(-2px); }
+.tablewrap { overflow-x: auto; margin-top: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 10px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+td.num, th.num { text-align: right; }
+td.evi { white-space: normal; color: var(--muted); font-style: italic; min-width: 200px; }
+
+.settings { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+select { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 30px 7px 12px; font-size: 14px; color: var(--ink); appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; max-width: 100%; }
+.note { margin-top: 18px; font-size: 13px; color: var(--muted); }
+
+.empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+.empty svg { width: 44px; height: 44px; color: var(--line); margin-bottom: 10px; }
+
+footer { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); }
+
+/* motion */
+@keyframes pagein { from { opacity: 0; } to { opacity: 1; } }
+.rise { opacity: 0; transform: translateY(28px); animation: riseup .9s var(--ease) forwards; }
+.rise.d1 { animation-delay: .08s; } .rise.d2 { animation-delay: .2s; }
+@keyframes riseup { to { opacity: 1; transform: none; } }
+.reveal { opacity: 0; transform: translateY(36px); transition: opacity 1s var(--ease), transform 1s var(--ease); }
+.reveal.in { opacity: 1; transform: none; }
+.stats, .leader { animation: riseup .7s var(--ease) both; }
+.leader { animation-delay: .08s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .rise, .reveal, .crow { opacity: 1 !important; transform: none !important; }
+}
+/* main menu (same on every page) */
+.nav { position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, .78); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.nav-in { max-width: 1240px; margin: 0 auto; padding: 0 16px; height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nav a.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; flex: none; }
+.nav a.brand svg { width: 20px; height: 20px; color: var(--accent); }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-links a { color: var(--muted); font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; padding: 6px 12px; border-radius: 980px; transition: color .2s, background .2s; }
+.nav-links a:hover { color: var(--ink); background: rgba(16, 42, 67, .05); }
+.nav-links a[aria-current="page"] { color: #fff; background: var(--accent); font-weight: 600; }
+@media (max-width: 560px) { .brand-text { display: none; } .nav-links a { font-size: 13px; padding: 6px 10px; } }
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Main">
+  <div class="nav-in">
+    <a class="brand" href="index.html" aria-label="Visibility Score, back to start">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V13M10 20V8M16 20v-5M22 20H2"/><circle cx="19" cy="5" r="2.2"/></svg>
+      <span class="brand-text">Visibility Score</span>
+    </a>
+    <div class="nav-links">
+      <a href="how-it-works.html">How it works</a>
+      <a href="app.html" aria-current="page">Open the tool</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<main class="app-main">
+  <div class="layout">
+  <section class="card col-input rise d1" aria-labelledby="inputTitle">
+    <div class="input-head">
+      <h2 id="inputTitle">Response</h2>
+      <div class="seg-ctl" role="tablist" aria-label="Input mode">
+        <button role="tab" id="tabPaste" aria-selected="true" aria-controls="genRow" type="button">Paste text</button>
+        <button role="tab" id="tabGen" aria-selected="false" aria-controls="genRow" type="button">Generate</button>
+      </div>
+    </div>
+
+    <div id="genRow" hidden>
+      <form class="gen" id="genForm">
+        <input id="prompt" type="text" aria-label="Question for ChatGPT" autocomplete="off" placeholder="Ask anything, e.g. What are the best CRM tools for small businesses?">
+        <button class="btn btn-primary" id="genBtn" type="submit">Generate</button>
+      </form>
+      <div class="hint">
+        <label class="switch" for="webSearch"><input type="checkbox" id="webSearch" role="switch"><span class="track" aria-hidden="true"></span>Web search</label>
+        <span id="wsNote">Off: faster and cheaper, answers from the model's own knowledge.</span>
+      </div>
+    </div>
+
+    
+    <textarea id="input" aria-label="Response text" spellcheck="false" placeholder="Paste the full answer here. Use the copy button in ChatGPT so lists and tables keep their formatting."></textarea>
+    <div class="sources" id="sources" hidden></div>
+
+    <div class="actions">
+      <span class="meta" id="count">0 words</span>
+      <span class="spacer"></span>
+      <button class="btn btn-quiet" id="sampleBtn" type="button">Try an example</button>
+      <button class="btn btn-quiet" id="clearBtn" type="button">Clear</button>
+      <button class="btn btn-secondary" id="stopBtn" type="button" hidden>Stop</button>
+      <button class="btn btn-primary" id="analyzeBtn" type="button">Calculate visibility</button>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="card rise d2" id="results" aria-labelledby="resultsTitle">
+    <div class="results-head">
+      <div>
+        <h2 id="resultsTitle">Visibility</h2>
+        <p class="sub">Predicted perceived visibility per brand, on the 1–7 scale used in the study.</p>
+      </div>
+      <span class="live">Live</span>
+    </div>
+    <div id="resultBody">
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 20V13M10 20V8M16 20v-5M22 20H2"/></svg>
+        <div>Add a response and press <b>Calculate visibility</b> to see the brand ranking.</div>
+      </div>
+    </div>
+  </section>
+
+  </div>
+</main>
+
+<footer>Based on the paper <cite>“Beyond Ranks: Measuring Brand Visibility in LLM Responses.”</cite> Research prototype. Scores are model-based estimates of how prominent a brand appears to readers of one specific answer, not a measurement. They are most reliable for recommendation-style answers with 3–8 brands. Text you submit is sent to OpenAI for analysis.</footer>
+
+<div class="tip" id="tip" hidden></div>
+
+<script src="model.js"></script>
+<script src="scoring.js"></script>
+<script>
+/* ======================= CONFIG ======================= */
+// Paste your OpenAI API key here. Anyone who can open this page can read it,
+// so only publish the page with a key that has a spending limit.
+const OPENAI_API_KEY = "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";
+
+const CONFIG = {
+  // Writes the answer, with web search. Fast and cheap; answers read like ChatGPT.
+  GENERATE_MODEL: "gpt-5.6-luna",
+  GENERATE_REASONING: "low",
+  WEB_SEARCH_DEFAULT: false,   // initial state of the "Web search" switch
+  // Reads the answer and extracts the model features. Terra gave consistent
+  // format, framing and recommendation labels across runs; Luna did not.
+  EXTRACT_MODEL: "gpt-5.6-terra",
+  EXTRACT_REASONING: "medium",
+};
+/* ====================================================== */
+
+const MODEL = window.VISIBILITY_MODEL;
+const VS = window.VisibilityScoring;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (v) => (v * 100).toFixed(v > 0 && v < 0.1 ? 1 : 0) + "%";
+
+const FORMAT_LABEL = { ContinuousText: "Continuous text", List: "List", Table: "Table" };
+const FRAMING_LABEL = { overall_recommendation: "Overall recommendation", suggested_option: "Suggested option", summary: "Summary", none: "None" };
+
+let current = null;     // { features, text }
+let controller = null;
+
+/* ---------------- example (precomputed, works without an API key) ---------------- */
+
+const SAMPLE = `Here are some of the best CRM tools for small businesses:
+
+1. **HubSpot CRM** – Free core CRM with email tracking, deal pipelines and a large app marketplace. Paid tiers get expensive as you add seats and advanced features.
+2. **Pipedrive** – A visual, deal-focused pipeline that sales teams pick up quickly. Automation and reporting are strong for the price.
+3. **Zoho CRM** – Very affordable and highly customizable, with deep integration into the wider Zoho suite. The interface can feel busy at first.
+4. **Salesforce Starter** – The industry standard, scaled down for small teams. Powerful, but setup and add-ons take time.
+5. **Freshsales** – Built-in phone, email and AI lead scoring in one clean interface.
+
+**My recommendation:** For most small businesses, HubSpot CRM is the best place to start because the free plan already covers the essentials. If your focus is closing deals, Pipedrive is a great alternative.`;
+
+const SAMPLE_ANNOTATION = {
+  format: "List",
+  recommendation: { present: true, framing: "overall_recommendation", segments: [6, 7] },
+  brands: [
+    { name: "HubSpot CRM", aliases: ["HubSpot"], segments: [1, 6], recommended: true, rank_in_rec: 1, evidence: "HubSpot CRM is the best place to start" },
+    { name: "Pipedrive", aliases: [], segments: [2, 7], recommended: true, rank_in_rec: 2, evidence: "Pipedrive is a great alternative" },
+    { name: "Zoho CRM", aliases: ["Zoho"], segments: [3], recommended: false, rank_in_rec: 0, evidence: "" },
+    { name: "Salesforce Starter", aliases: ["Salesforce"], segments: [4], recommended: false, rank_in_rec: 0, evidence: "" },
+    { name: "Freshsales", aliases: [], segments: [5], recommended: false, rank_in_rec: 0, evidence: "" },
+  ],
+};
+
+/* ---------------- OpenAI ---------------- */
+
+const EXTRACT_INSTRUCTIONS = `You annotate an answer written by an AI assistant for a brand-visibility model.
+The answer is split into numbered segments (sentences, list items, table rows, headings).
+
+Work in this order and fill the JSON schema.
+
+1. mentioned_options: go through every segment and list EVERY brand, company, product, product line or service that the reader could choose, in order of first appearance. Be exhaustive: include options that are only named in passing, in parentheses, as an alternative, in an "also consider" or "other options" list, inside another option's description, in a table cell, or only in the recommendation part. Write each name as it appears in the text, without descriptive words such as "discounted", "the" or "new". Never merge two different names into one entry (no "A/B", "A or B", "A and B" entries); a product line and a specific model of it are separate only if the answer treats them as separate options. Different spellings or short forms of the same option are ONE entry (e.g. "Motorola Moto G Power 5G (2026)" and later "Moto G Power 5G", or "POCO X series" and "POCO X-series"); list it once, under its first form.
+   Do not list things that are not options for the reader's question: platforms, ecosystems, operating systems, retailers, review sites, sources, and tools mentioned only as integrations (e.g. "works with iPhone", "integrates with Slack", "available on Amazon").
+
+2. brands: one entry for every item in mentioned_options (same names, same order). Every mentioned option must appear here.
+- name: the name from mentioned_options. aliases: other surface forms of the same option in the text (e.g. "Bose QC Ultra" for "Bose QuietComfort Ultra").
+- segments: ids of all segments that describe this option, anywhere in the answer (including the recommendation part). If a segment names or describes several options (a shared table row, a comparison, an "other options: A, B, C" line), list it under each of them. Introductions, general advice, headings and table header rows belong to no option.
+- recommended: true if the recommendation part (see 3) endorses this option. An option is endorsed if it appears in a "my top picks", "my recommendation", "bottom line", "quick recommendation" or similar section, or receives its own specific pick there. This includes use-case and conditional picks ("Best camera: X", "Best under $300: Y", "Choose A if you need X", "if comfort matters most, get B"). It is NOT endorsed if it is only listed neutrally, mentioned as a cautionary example, mentioned in passing as a fallback, or listed among many other options without its own pick. Apply this rule to every option in the recommendation part, not only the first.
+- rank_in_rec: order in which the recommended options are first named in the recommendation part (1 = first). 0 if not recommended.
+- evidence: if recommended, the short phrase (max 15 words) that singles it out; otherwise "".
+
+3. recommendation: a distinct part of the answer, usually at the end, that singles out one or more specific options, e.g. "Overall recommendation", "My pick", "Bottom line", "Quick recommendation", "Suggested option", "Summary".
+- present: true if such a part exists and singles out at least one option.
+- segments: ids of the segments forming that part, including its heading.
+- framing: "overall_recommendation" for an emphatic, explicit endorsement, including explicit conditional or use-case picks (best overall, top pick, I recommend, go with X, buy X, "Best camera: X", "choose A if…"); "suggested_option" for a softer suggestion (you could consider, a good option might be, suggested option); "summary" when it only draws attention to or summarizes selected options without presenting them as the best choice; "none" if there is no such part.
+
+4. format: how the options are mainly presented: "List" (numbered or bulleted items, or one headed section per option), "Table" (options compared in a table), "ContinuousText" (flowing paragraphs).
+
+Return only the JSON.`;
+
+const EXTRACT_SCHEMA = {
+  type: "object", additionalProperties: false, required: ["mentioned_options", "brands", "recommendation", "format"],
+  properties: {
+    mentioned_options: { type: "array", items: { type: "string" } },
+    format: { type: "string", enum: ["ContinuousText", "List", "Table"] },
+    recommendation: {
+      type: "object", additionalProperties: false, required: ["present", "framing", "segments"],
+      properties: {
+        present: { type: "boolean" },
+        framing: { type: "string", enum: ["overall_recommendation", "suggested_option", "summary", "none"] },
+        segments: { type: "array", items: { type: "integer" } },
+      },
+    },
+    brands: {
+      type: "array",
+      items: {
+        type: "object", additionalProperties: false,
+        required: ["name", "aliases", "segments", "recommended", "rank_in_rec", "evidence"],
+        properties: {
+          name: { type: "string" },
+          aliases: { type: "array", items: { type: "string" } },
+          segments: { type: "array", items: { type: "integer" } },
+          recommended: { type: "boolean" },
+          rank_in_rec: { type: "integer" },
+          evidence: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+function hasKey() { return OPENAI_API_KEY && !/^YOUR_/.test(OPENAI_API_KEY); }
+
+async function openai(body, signal) {
+  if (!hasKey()) throw new Error("Add your OpenAI API key in app.html (OPENAI_API_KEY) to use this feature. You can still try the example.");
+  let r;
+  try {
+    r = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST", signal,
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + OPENAI_API_KEY },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    if (e.name === "AbortError") throw e;
+    throw new Error("Could not reach OpenAI. Check your internet connection.");
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = (data.error && data.error.message) || "";
+    if (r.status === 401) throw new Error("OpenAI rejected the API key. Check OPENAI_API_KEY in app.html.");
+    if (r.status === 429) throw new Error("OpenAI rate limit or quota reached. Try again in a minute. " + msg);
+    throw new Error("OpenAI error (" + r.status + "). " + msg);
+  }
+  return data;
+}
+
+function outputText(data) {
+  let text = "", sources = [], refusal = "";
+  (data.output || []).forEach((item) => {
+    if (item.type !== "message") return;
+    (item.content || []).forEach((c) => {
+      if (c.type === "output_text") {
+        text += c.text;
+        (c.annotations || []).forEach((a) => { if (a.type === "url_citation" && a.url) sources.push({ url: a.url, title: a.title || a.url }); });
+      } else if (c.type === "refusal") refusal += c.refusal;
+    });
+  });
+  if (!text && refusal) throw new Error("ChatGPT declined: " + refusal);
+  const seen = new Set();
+  sources = sources.filter((s) => (seen.has(s.url) ? false : seen.add(s.url)));
+  return { text: text.trim(), sources };
+}
+
+/* Streams the answer: onText receives the text so far, so it appears while it is written. */
+async function generateAnswer(prompt, signal, onText) {
+  if (!hasKey()) throw new Error("Add your OpenAI API key in app.html (OPENAI_API_KEY) to use this feature. You can still try the example.");
+  const body = {
+    model: CONFIG.GENERATE_MODEL,
+    reasoning: { effort: CONFIG.GENERATE_REASONING },
+    tools: $("#webSearch").checked ? [{ type: "web_search" }] : [],
+    input: prompt,
+    stream: true,
+  };
+  let r;
+  try {
+    r = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST", signal,
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + OPENAI_API_KEY },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    if (e.name === "AbortError") throw e;
+    throw new Error("Could not reach OpenAI. Check your internet connection.");
+  }
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    const msg = (data.error && data.error.message) || "";
+    if (r.status === 401) throw new Error("OpenAI rejected the API key. Check OPENAI_API_KEY in app.html.");
+    if (r.status === 429) throw new Error("OpenAI rate limit or quota reached. Try again in a minute. " + msg);
+    throw new Error("OpenAI error (" + r.status + "). " + msg);
+  }
+
+  const reader = r.body.getReader(), decoder = new TextDecoder();
+  let buffer = "", text = "", sources = [];
+  const handle = (ev) => {
+    if (ev.type === "response.output_text.delta") { text += ev.delta; onText(text); }
+    else if (ev.type === "response.output_text.annotation.added" && ev.annotation && ev.annotation.type === "url_citation") sources.push({ url: ev.annotation.url, title: ev.annotation.title || ev.annotation.url });
+    else if (ev.type === "response.refusal.delta") throw new Error("ChatGPT declined to answer this question.");
+    else if (ev.type === "response.failed" || ev.type === "error") throw new Error("OpenAI error. " + ((ev.response && ev.response.error && ev.response.error.message) || ev.message || ""));
+  };
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let i;
+    while ((i = buffer.indexOf("\n\n")) >= 0) {
+      const chunk = buffer.slice(0, i); buffer = buffer.slice(i + 2);
+      const data = chunk.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("");
+      if (!data || data === "[DONE]") continue;
+      let ev; try { ev = JSON.parse(data); } catch { continue; }
+      handle(ev);
+    }
+  }
+  const seen = new Set();
+  sources = sources.filter((s) => (seen.has(s.url) ? false : seen.add(s.url)));
+  return { text: text.trim(), sources };
+}
+
+async function extractAnnotation(segs, signal) {
+  const input = segs.map((s) => `[${s.id}] ${s.text}`).join("\n");
+  const data = await openai({
+    model: CONFIG.EXTRACT_MODEL,
+    reasoning: { effort: CONFIG.EXTRACT_REASONING },
+    instructions: EXTRACT_INSTRUCTIONS,
+    input: "Answer segments:\n" + input,
+    text: { format: { type: "json_schema", name: "brand_visibility_features", strict: true, schema: EXTRACT_SCHEMA } },
+  }, signal);
+  const { text } = outputText(data);
+  try { return JSON.parse(text); } catch { throw new Error("Could not read the feature extraction. Please try again."); }
+}
+
+/* ---------------- UI: busy state ---------------- */
+
+let timer = null;
+function setBusy(label) {
+  const busy = !!label;
+  $("#analyzeBtn").disabled = busy;
+  $("#genBtn").disabled = busy;
+  $("#stopBtn").hidden = !busy;
+  clearInterval(timer);
+  if (busy) {
+    const t0 = Date.now();
+    const tick = () => { $("#status").className = "status"; $("#status").innerHTML = `<span style="display:inline-flex;gap:8px;align-items:center"><span class="spin" aria-hidden="true"></span>${esc(label)} ${Math.round((Date.now() - t0) / 1000)}s</span>`; };
+    tick(); timer = setInterval(tick, 1000);
+  }
+}
+function setStatus(msg, isError) {
+  clearInterval(timer);
+  $("#status").className = "status" + (isError ? " error" : "");
+  $("#status").textContent = msg || "";
+}
+
+function updateCount() {
+  const n = VS.segment($("#input").value).reduce((a, s) => a + s.words, 0);
+  $("#count").textContent = n.toLocaleString() + (n === 1 ? " word" : " words");
+}
+
+/* ---------------- UI: results ---------------- */
+
+function render() {
+  const body = $("#resultBody");
+  if (!current) return;
+  const f = current.features;
+  if (!f.brands.length) {
+    body.innerHTML = `<div class="empty">No brands were found in this response.</div>`;
+    return;
+  }
+  document.querySelector(".layout").classList.add("has-results");
+  const scored = VS.scoreBrands(MODEL, f, "average");   // mean over the three study contexts
+  current.scored = scored;
+  const top = scored[0];
+
+  const x = (v) => ((v - 1) / 6) * 100;
+
+  const rows = scored.map((b, i) => `
+    <div class="crow${b.overrec ? " rec" : ""}" style="animation-delay:${i * 70}ms" tabindex="0" data-i="${i}" aria-label="${esc(b.name)}: ${b.score.toFixed(2)} out of 7${b.overrec ? ", recommended" : ""}">
+      <span class="name"><span class="nm" title="${esc(b.name)}">${esc(b.name)}</span>${b.overrec ? `<span class="star" aria-hidden="true">★</span>` : ""}</span>
+      <span class="plot"><span class="barfill" style="width:0%;transition-delay:${120 + i * 70}ms" data-w="${x(b.score)}"></span></span>
+      <span class="val" data-count="${b.score}" data-delay="${120 + i * 70}">${b.score.toFixed(2)}</span>
+    </div>`).join("");
+
+  const cautions = [];
+  if (f.numberofbrands_main > 8 || f.numberofbrands_main < 3) cautions.push(`it has ${f.numberofbrands_main} brands (the study used 3 to 8)`);
+  if (f.numberofbrands_rec > 3) cautions.push(`it recommends ${f.numberofbrands_rec} brands (the study used at most 3)`);
+  const warn = cautions.length
+    ? `<p class="note">This answer is outside the range the model was trained on: ${cautions.join(" and ")}. Treat the scores with extra caution.</p>` : "";
+
+  body.innerHTML = `
+    <div class="chart" id="chart" role="list">
+      ${rows}
+      <div class="chart-foot">Predicted visibility, 1 (not at all) to 7 (extremely visible) · <span style="color:var(--accent)">★</span> recommended</div>
+    </div>
+    <div class="leader">
+      <span class="score"><span class="big" data-count="${top.score}" data-delay="150">${top.score.toFixed(2)}</span><span class="of">/ 7</span></span>
+      <span class="who">Most visible: <b>${esc(top.name)}</b>${scored.length > 1 ? `, ${(top.score - scored[1].score).toFixed(2)} points ahead of ${esc(scored[1].name)}` : ""}</span>
+    </div>
+    <dl class="stats">
+      <div class="stat"><dt>Brands</dt><dd>${f.numberofbrands_main}</dd></div>
+      <div class="stat"><dt>Format</dt><dd>${FORMAT_LABEL[f.format]}</dd></div>
+      <div class="stat"><dt>Recommendation</dt><dd>${FRAMING_LABEL[f.framing]}${f.numberofbrands_rec ? ` · ${f.numberofbrands_rec}` : ""}</dd></div>
+      <div class="stat"><dt>Words</dt><dd>${f.totalWords.toLocaleString()}</dd></div>
+    </dl>
+    ${warn}
+    <details class="more">
+      <summary>Show scores and features</summary>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>#</th><th>Brand</th><th class="num">Score</th><th class="num">Rank</th><th class="num">Text share</th><th>Recommended</th><th class="num">Rec. rank</th><th class="num">Rec. text share</th><th>Evidence</th></tr></thead>
+          <tbody>${scored.map((b, i) => `<tr>
+            <td>${i + 1}</td><td><b>${esc(b.name)}</b></td><td class="num">${b.score.toFixed(2)}</td><td class="num">${b.rank}</td>
+            <td class="num">${pct(b.textshare_main)}</td><td>${b.overrec ? "Yes" : "No"}</td><td class="num">${b.rank_in_rec || "–"}</td>
+            <td class="num">${b.overrec ? pct(b.textshare_rec) : "–"}</td><td class="evi">${esc(b.evidence)}</td></tr>`).join("")}</tbody>
+        </table>
+      </div>
+    </details>`;
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    body.querySelectorAll(".barfill").forEach((el) => { el.style.width = el.dataset.w + "%"; });
+    body.querySelectorAll("[data-count]").forEach(countUp);
+  }));
+  wireTooltips();
+}
+
+function countUp(el) {
+  const to = +el.dataset.count;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { el.textContent = to.toFixed(2); return; }
+  const from = 1, dur = 1100, delay = +el.dataset.delay || 0, ease = (t) => 1 - Math.pow(1 - t, 4);
+  el.textContent = from.toFixed(2);
+  const t0 = performance.now() + delay;
+  const step = (now) => {
+    const t = Math.max(0, Math.min(1, (now - t0) / dur));
+    el.textContent = (from + (to - from) * ease(t)).toFixed(2);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function wireTooltips() {
+  const tip = $("#tip");
+  const show = (row) => {
+    const b = current.scored[+row.dataset.i];
+    tip.innerHTML = `<b>${esc(b.name)}</b><dl>
+      <dt>Visibility</dt><dd>${b.score.toFixed(2)} / 7</dd>
+      <dt>Rank of first mention</dt><dd>${b.rank} of ${current.features.numberofbrands_main}</dd>
+      <dt>Text share</dt><dd>${pct(b.textshare_main)}</dd>
+      <dt>Recommended</dt><dd>${b.overrec ? "Yes, #" + b.rank_in_rec : "No"}</dd>
+      ${b.overrec ? `<dt>Recommendation text share</dt><dd>${pct(b.textshare_rec)}</dd>` : ""}
+    </dl>`;
+    tip.hidden = false;
+    const r = row.getBoundingClientRect();
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = r.left + window.scrollX + Math.min(r.width - w, r.width * 0.45);
+    left = Math.max(window.scrollX + 8, Math.min(left, window.scrollX + document.documentElement.clientWidth - w - 8));
+    let top = r.top + window.scrollY - h - 8;
+    if (r.top - h - 8 < 60) top = r.bottom + window.scrollY + 8;
+    tip.style.left = left + "px"; tip.style.top = top + "px";
+  };
+  const hide = () => { tip.hidden = true; };
+  document.querySelectorAll("#chart .crow").forEach((row) => {
+    row.addEventListener("mouseenter", () => show(row));
+    row.addEventListener("mouseleave", hide);
+    row.addEventListener("focus", () => show(row));
+    row.addEventListener("blur", hide);
+  });
+}
+
+/* ---------------- actions ---------------- */
+
+async function analyze() {
+  const text = $("#input").value.trim();
+  if (!text) { setStatus("Paste or generate a response first.", true); $("#input").focus(); return; }
+  const segs = VS.segment(text);
+  if (!segs.length) { setStatus("This text has no content to analyze.", true); return; }
+
+  if (text === SAMPLE.trim()) {
+    current = { text, features: VS.computeFeatures(segs, structuredClone(SAMPLE_ANNOTATION)) };
+    setStatus("");
+    render();
+    return;
+  }
+
+  controller = new AbortController();
+  setBusy("Reading the response…");
+  try {
+    const ann = await extractAnnotation(segs, controller.signal);
+    current = { text, features: VS.computeFeatures(segs, ann) };
+    setStatus("");
+    render();
+    if (matchMedia("(max-width: 959px)").matches) $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) {
+    if (e.name === "AbortError") setStatus("Stopped.");
+    else setStatus(e.message, true);
+  } finally {
+    controller = null; setBusy(null);
+    if ($("#status").querySelector(".spin")) setStatus("");
+  }
+}
+
+async function generate(ev) {
+  ev.preventDefault();
+  const prompt = $("#prompt").value.trim();
+  if (!prompt) { setStatus("Type a question for ChatGPT first.", true); $("#prompt").focus(); return; }
+  controller = new AbortController();
+  setBusy($("#webSearch").checked ? "ChatGPT is searching the web and writing…" : "ChatGPT is writing…");
+  try {
+    const box = $("#input");
+    box.value = ""; renderSources(null);
+    let first = true;
+    const { text, sources } = await generateAnswer(prompt, controller.signal, (soFar) => {
+      if (first) { first = false; setBusy("ChatGPT is writing…"); }
+      const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 24;
+      box.value = soFar;
+      if (atEnd) box.scrollTop = box.scrollHeight;
+      updateCount();
+    });
+    if (!text) throw new Error("ChatGPT returned an empty answer. Try again.");
+    box.value = text;
+    updateCount();
+    renderSources(sources);
+    setStatus("Answer ready. Press Calculate visibility to score the brands.");
+  } catch (e) {
+    if (e.name === "AbortError") setStatus("Stopped.");
+    else setStatus(e.message, true);
+  } finally {
+    controller = null; setBusy(null);
+    if ($("#status").querySelector(".spin")) setStatus("");
+  }
+}
+
+function renderSources(list) {
+  const el = $("#sources");
+  if (!list || !list.length) { el.hidden = true; el.innerHTML = ""; return; }
+  el.innerHTML = `<span>Sources</span>` + list.slice(0, 10).map((s) => {
+    let host = s.url; try { host = new URL(s.url).hostname.replace(/^www\./, ""); } catch {}
+    return `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" title="${esc(s.title)}">${esc(host)}</a>`;
+  }).join("");
+  el.hidden = false;
+}
+
+function setTab(gen) {
+  $("#tabPaste").setAttribute("aria-selected", String(!gen));
+  $("#tabGen").setAttribute("aria-selected", String(gen));
+  $("#genRow").hidden = !gen;
+  (gen ? $("#prompt") : $("#input")).focus();
+}
+
+$("#tabPaste").addEventListener("click", () => setTab(false));
+$("#tabGen").addEventListener("click", () => setTab(true));
+$("#genForm").addEventListener("submit", generate);
+$("#analyzeBtn").addEventListener("click", analyze);
+$("#stopBtn").addEventListener("click", () => controller && controller.abort());
+$("#input").addEventListener("input", updateCount);
+$("#sampleBtn").addEventListener("click", () => { $("#input").value = SAMPLE; renderSources(null); updateCount(); analyze(); });
+$("#clearBtn").addEventListener("click", () => { $("#input").value = ""; renderSources(null); updateCount(); setStatus(""); $("#input").focus(); });
+window.addEventListener("scroll", () => { $("#tip").hidden = true; }, { passive: true });
+
+if (!MODEL || !VS) setStatus("The model files (model.js, scoring.js) could not be loaded. Keep them in the same folder as app.html.", true);
+updateCount();
+
+(function () {
+  const ws = $("#webSearch"), note = $("#wsNote");
+  const sync = () => { note.textContent = ws.checked ? "On: uses current web sources. Slower, and can take up to a minute." : "Off: faster and cheaper, answers from the model's own knowledge."; };
+  ws.checked = !!CONFIG.WEB_SEARCH_DEFAULT;
+  ws.addEventListener("change", sync); sync();
+})();
+
+(function () {
+  const els = document.querySelectorAll(".reveal");
+  if (!("IntersectionObserver" in window)) { els.forEach((e) => e.classList.add("in")); return; }
+  const io = new IntersectionObserver((entries) => entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } }), { threshold: 0.15 });
+  els.forEach((e) => io.observe(e));
+})();
+</script>
+</body>
+</html>

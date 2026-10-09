@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>Visibility Score</title>
+<meta name="description" content="Estimate how visible each brand is to readers of an AI-generated answer.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --ink: #111827;
+  --muted: #64707d;
+  --line: #e3e8ee;
+  --accent: #0047c8;
+  --accent-hover: #003aa6;
+  --accent-soft: #e8effc;
+  --track: #eef1f5;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; color: var(--ink); background: var(--bg); overflow-x: hidden;
+  font: 17px/1.47 var(--font); letter-spacing: -.011em; -webkit-font-smoothing: antialiased;
+  display: grid; grid-template-rows: auto 1fr auto;
+  transition: opacity .45s var(--ease), transform .45s var(--ease), filter .45s var(--ease);
+}
+body.leaving { opacity: 0; transform: scale(.985); filter: blur(6px); }
+
+/* drifting light in the background */
+.aura { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.aura i { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .55; will-change: transform; }
+.aura i:nth-child(1) { width: 46vmax; height: 46vmax; left: -10vmax; top: -14vmax; background: #c9dbff; animation: drift1 22s ease-in-out infinite alternate; }
+.aura i:nth-child(2) { width: 38vmax; height: 38vmax; right: -12vmax; top: 10vh; background: #d6e4ff; animation: drift2 26s ease-in-out infinite alternate; }
+.aura i:nth-child(3) { width: 30vmax; height: 30vmax; left: 30vw; bottom: -16vmax; background: #dfe9fb; animation: drift3 30s ease-in-out infinite alternate; }
+@keyframes drift1 { to { transform: translate(14vw, 10vh) scale(1.15); } }
+@keyframes drift2 { to { transform: translate(-12vw, 14vh) scale(.9); } }
+@keyframes drift3 { to { transform: translate(-10vw, -12vh) scale(1.1); } }
+
+.start { display: grid; place-items: center; text-align: center; padding: 56px 16px 32px; }
+.start-in { display: grid; justify-items: center; width: 100%; }
+
+/* logo: baseline draws, bars rise, dot pops, then a gentle pulse */
+.logo { width: 92px; height: 92px; color: var(--accent); margin-bottom: 30px; overflow: visible; }
+.logo .base { stroke-dasharray: 22; stroke-dashoffset: 22; animation: draw .7s var(--ease) .15s forwards; }
+.logo .bar { transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); animation: rise .7s var(--ease) forwards; }
+.logo .b1 { animation-delay: .55s; } .logo .b2 { animation-delay: .68s; } .logo .b3 { animation-delay: .81s; }
+.logo .dot { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: pop .6s cubic-bezier(.34, 1.56, .64, 1) 1.05s forwards; }
+.logo .ring { transform-box: fill-box; transform-origin: center; opacity: 0; animation: ring 2.8s var(--ease) 1.8s infinite; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes rise { to { transform: scaleY(1); } }
+@keyframes pop { to { transform: scale(1); } }
+@keyframes ring { 0% { transform: scale(1); opacity: .5; } 70%, 100% { transform: scale(3.2); opacity: 0; } }
+
+/* headline: word-by-word reveal */
+h1 { font-size: clamp(42px, 7.6vw, 76px); line-height: 1.04; letter-spacing: -.035em; font-weight: 700; margin: 0; max-width: 13ch; text-wrap: balance; }
+h1 .w { display: inline-block; opacity: 0; transform: translateY(.35em); filter: blur(10px); animation: word .9s var(--ease) forwards; }
+h1 .accent { color: var(--accent); }
+@keyframes word { to { opacity: 1; transform: none; filter: blur(0); } }
+
+.fade { opacity: 0; transform: translateY(16px); animation: fadeup .9s var(--ease) forwards; }
+@keyframes fadeup { to { opacity: 1; transform: none; } }
+.lede { color: var(--muted); font-size: clamp(18px, 2.4vw, 22px); line-height: 1.4; max-width: 30em; margin: 22px 0 0; text-wrap: pretty; animation-delay: 1.1s; }
+
+.enter {
+  margin-top: 36px; display: inline-flex; align-items: center; gap: 10px;
+  background: var(--accent); color: #fff; text-decoration: none;
+  font-size: 17px; font-weight: 600; padding: 14px 32px; border-radius: 980px;
+  transition: background .25s, transform .25s var(--ease);
+  animation-delay: 1.25s;
+}
+.enter:hover { background: var(--accent-hover); }
+.enter:active { transform: scale(.97); }
+.enter:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent); outline-offset: 3px; }
+/* the button wiggles and sends out a soft ring, to invite a click */
+.enter { position: relative; animation: fadeup .9s var(--ease) 1.25s forwards, nudge 2.8s ease-in-out 1.8s infinite; }
+.enter::after { content: ""; position: absolute; inset: 0; border-radius: inherit; animation: halo 2.8s ease-out 1.8s infinite; pointer-events: none; }
+.enter:hover, .enter:focus-visible { animation: fadeup .01s forwards; }
+.enter:hover::after, .enter:focus-visible::after { animation: none; }
+@keyframes nudge {
+  0%, 30%, 100% { transform: none; }
+  6% { transform: rotate(-3deg) scale(1.05); }
+  12% { transform: rotate(3deg) scale(1.05); }
+  18% { transform: rotate(-2deg) scale(1.03); }
+  24% { transform: rotate(1deg); }
+}
+@keyframes halo {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  35%, 100% { box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+.enter svg { width: 18px; height: 18px; transition: transform .35s var(--ease); }
+.enter:hover svg { transform: translateX(4px); }
+
+/* live preview */
+.preview {
+  margin-top: 56px; width: min(440px, 100%); text-align: left;
+  background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); border-radius: 22px; padding: 20px 22px 18px;
+  animation-delay: 1.4s;
+}
+.preview-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.preview-q { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: opacity .4s; }
+.preview-live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent); flex: none; }
+.preview-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.prow { display: grid; grid-template-columns: 96px minmax(0, 1fr) 40px; align-items: center; gap: 12px; padding: 7px 0; transition: transform .6s var(--ease); }
+.prow .n { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.prow .star { color: var(--accent); font-size: 12px; opacity: 0; transform: scale(.4); transition: opacity .4s, transform .5s cubic-bezier(.34, 1.56, .64, 1); }
+.prow.rec .star { opacity: 1; transform: none; }
+.prow .t { height: 10px; background: var(--track); border-radius: 99px; overflow: hidden; }
+.prow .f { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .6s var(--ease); }
+.prow:not(:first-child) .f { background: color-mix(in srgb, var(--accent) 45%, #c9d6ee); }
+.prow .v { font-size: 14px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.preview-foot { margin-top: 10px; font-size: 12px; color: var(--muted); }
+
+footer { padding: 18px 16px 26px; text-align: center; color: var(--muted); font-size: 12px; }
+footer.fade { animation-delay: 1.6s; }
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition: none !important; }
+  .logo .ring { display: none; }
+}
+/* main menu (same on every page) */
+.nav { position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, .78); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.nav-in { max-width: 1240px; margin: 0 auto; padding: 0 16px; height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nav a.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; flex: none; }
+.nav a.brand svg { width: 20px; height: 20px; color: var(--accent); }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-links a { color: var(--muted); font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; padding: 6px 12px; border-radius: 980px; transition: color .2s, background .2s; }
+.nav-links a:hover { color: var(--ink); background: rgba(16, 42, 67, .05); }
+.nav-links a[aria-current="page"] { color: #fff; background: var(--accent); font-weight: 600; }
+@media (max-width: 560px) { .brand-text { display: none; } .nav-links a { font-size: 13px; padding: 6px 10px; } }
+</style>
+</head>
+<body>
+<div class="aura" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<nav class="nav" aria-label="Main">
+  <div class="nav-in">
+    <a class="brand" href="index.html" aria-label="Visibility Score, back to start">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V13M10 20V8M16 20v-5M22 20H2"/><circle cx="19" cy="5" r="2.2"/></svg>
+      <span class="brand-text">Visibility Score</span>
+    </a>
+    <div class="nav-links">
+      <a href="how-it-works.html">How it works</a>
+      <a href="app.html">Open the tool</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<main class="start">
+  <div class="start-in">
+    <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" role="img" aria-label="Visibility Score">
+      <path class="base" d="M2 20h20"/>
+      <path class="bar b1" d="M4 20v-7"/>
+      <path class="bar b2" d="M10 20V8"/>
+      <path class="bar b3" d="M16 20v-5"/>
+      <circle class="ring" cx="19" cy="5" r="2.2" stroke-width="1"/>
+      <circle class="dot" cx="19" cy="5" r="2.2"/>
+    </svg>
+    <h1 id="headline" aria-label="See which brands stand out.">See which brands <span class="accent">stand out.</span></h1>
+    <p class="lede fade">Paste or generate a ChatGPT answer and see how visible each brand is to readers.</p>
+    <a class="enter fade" id="enter" href="how-it-works.html">Enter
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+
+    <div class="preview fade" aria-hidden="true">
+      <div class="preview-head"><span class="preview-q" id="pq"></span><span class="preview-live">Live</span></div>
+      <div id="prows"></div>
+      <div class="preview-foot">Predicted visibility, 1–7 · illustrative example</div>
+    </div>
+  </div>
+</main>
+<footer class="fade">Based on the paper <cite>“Beyond Ranks: Measuring Brand Visibility in LLM Responses.”</cite> · <a href="how-it-works.html">How it works</a> · <a href="contact.html">Contact</a></footer>
+
+<script>
+/* Headline: split into words so each one can be revealed in turn */
+(function () {
+  const h = document.getElementById("headline");
+  let i = 0;
+  const wrap = (node) => {
+    [...node.childNodes].forEach((n) => {
+      if (n.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        n.textContent.split(/(\s+)/).forEach((part) => {
+          if (!part) return;
+          if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+          const s = document.createElement("span");
+          s.className = "w"; s.textContent = part; s.setAttribute("aria-hidden", "true");
+          s.style.animationDelay = (0.45 + i++ * 0.11) + "s";
+          frag.appendChild(s);
+        });
+        n.replaceWith(frag);
+      } else wrap(n);
+    });
+  };
+  wrap(h);
+})();
+
+/* Live preview: cycles through example answers, bars grow and numbers count up */
+(function () {
+  const scenes = [
+    { q: "“Best project management tools for small teams?”", rows: [["Northwind", 5.6, true], ["Lumen", 4.7], ["Arcadia", 4.1]] },
+    { q: "“Which CRM should a startup use?”", rows: [["Halcyon", 5.3, true], ["Vertex", 5.0, true], ["Pinewood", 3.9]] },
+    { q: "“Best meditation apps for beginners?”", rows: [["Stillwater", 5.8, true], ["Ember", 4.4], ["Aurora", 4.2]] },
+  ];
+  const rowsEl = document.getElementById("prows"), qEl = document.getElementById("pq");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  rowsEl.innerHTML = [0, 1, 2].map(() => `<div class="prow"><span class="n"><span class="nm"></span><span class="star">★</span></span><span class="t"><span class="f"></span></span><span class="v">0.0</span></div>`).join("");
+  const rows = [...rowsEl.children];
+  const vals = [1, 1, 1];
+  const ease = (t) => 1 - Math.pow(1 - t, 3);
+
+  function count(i, to) {
+    const from = vals[i], t0 = performance.now(), dur = reduce ? 0 : 600, el = rows[i].querySelector(".v");
+    const step = (now) => {
+      const t = dur ? Math.min(1, (now - t0) / dur) : 1;
+      el.textContent = (from + (to - from) * ease(t)).toFixed(1);
+      if (t < 1) requestAnimationFrame(step); else vals[i] = to;
+    };
+    requestAnimationFrame(step);
+  }
+
+  let k = 0;
+  function show() {
+    const s = scenes[k % scenes.length];
+    qEl.style.opacity = 0;
+    setTimeout(() => { qEl.textContent = s.q; qEl.style.opacity = 1; }, 250);
+    s.rows.forEach(([name, v, rec], i) => {
+      const r = rows[i];
+      setTimeout(() => {
+        r.querySelector(".nm").textContent = name;
+        r.classList.toggle("rec", !!rec);
+        r.querySelector(".f").style.width = ((v - 1) / 6 * 100) + "%";
+        count(i, v);
+      }, i * 90);
+    });
+    k++;
+  }
+  setTimeout(() => { show(); if (!reduce) setInterval(show, 2600); }, reduce ? 0 : 1600);
+})();
+
+/* Enter: soft fade before leaving */
+(function () {
+  const go = (e) => {
+    if (e) e.preventDefault();
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { location.href = "how-it-works.html"; return; }
+    document.body.classList.add("leaving");
+    setTimeout(() => { location.href = "how-it-works.html"; }, 380);
+  };
+  document.getElementById("enter").addEventListener("click", go);
+  document.addEventListener("keydown", (e) => { if (e.key === "Enter" && document.activeElement === document.body) go(); });
+  window.addEventListener("pageshow", () => document.body.classList.remove("leaving"));
+})();
+</script>
+</body>
+</html>
